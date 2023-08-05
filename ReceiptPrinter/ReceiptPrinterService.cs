@@ -13,7 +13,7 @@ namespace ReceiptPrinter
 {
     internal class ReceiptPrinterService
     {
-        private SerialPrinter printer = null;
+        //private SerialPrinter printer = null;
 
         public ReceiptPrinterService() {
             SetupPrinterDevice();
@@ -29,7 +29,7 @@ namespace ReceiptPrinter
             //var printer = new ImmediateNetworkPrinter(new ImmediateNetworkPrinterSettings() { ConnectionString = $"{hostnameOrIp}:{port}", PrinterName = "TestPrinter" });
 
             // USB, Bluetooth, or Serial
-            var printer = new SerialPrinter(portName: "COM5", baudRate: 115200);
+            var printer = new SerialPrinter(portName: "COM1", baudRate: 115200);
 
             // Linux output to USB / Serial file
             //var printer = new FilePrinter(filePath: "/dev/usb/lp0");
@@ -40,13 +40,15 @@ namespace ReceiptPrinter
 
         public void PrintSaleByJSON(string json)
         {
-            var list = JsonConvert.DeserializeObject<List<TransactionItem>>(json);
+            //var list = JsonConvert.DeserializeObject<List<TransactionItem>>(json);
+
+            var printer = new SerialPrinter(portName: "COM2", baudRate: 115200);
 
             var e = new EPSON();
             printer.Write( // or, if using and immediate printer, use await printer.WriteAsync
               ByteSplicer.Combine(
                 e.CenterAlign(),
-                e.PrintImage(File.ReadAllBytes("images/pd-logo-300.png"), true),
+                //e.PrintImage(File.ReadAllBytes("images/pd-logo-300.png"), true),
                 e.PrintLine(""),
                 e.SetBarcodeHeightInDots(360),
                 e.SetBarWidth(BarWidth.Default),

@@ -14,7 +14,7 @@ public class HttpServer
     public void Start()
     {
         _listener = new HttpListener();
-        _listener.Prefixes.Add("http://10.211.55.3:" + Port.ToString() + "/");
+        _listener.Prefixes.Add("http://localhost:" + Port.ToString() + "/");
         _listener.Start();
         Receive();
     }

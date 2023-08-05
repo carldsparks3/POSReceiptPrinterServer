@@ -4,6 +4,9 @@ namespace ReceiptPrinter
 {
     public partial class Form1 : Form
     {
+        System.IO.StreamReader fileToPrint;
+        System.Drawing.Font printFont;
+
         public Form1()
         {
             InitializeComponent();
@@ -14,8 +17,12 @@ namespace ReceiptPrinter
             listBox1.Items.Add(new MyListBoxItem(Color.Green, "Validated data successfully"));
             listBox1.Items.Add(new MyListBoxItem(Color.Red, "Failed to validate data"));
 
-            ReceiptPrinterService rps = new ReceiptPrinterService();
-            rps.PrintSaleByJSON("nothing is done with this yet....");
+            //ReceiptPrinterService rps = new ReceiptPrinterService();
+            //rps.PrintSaleByJSON("nothing is done with this yet....");
+
+            //Class1.Print();
+
+
         }
 
         private void listBox1_DrawItem(object sender, DrawItemEventArgs e)
@@ -96,6 +103,41 @@ namespace ReceiptPrinter
 
             var httpServer = new HttpServer();
             httpServer.Start();
+        }
+
+        
+        private void printButton_Click(object sender, EventArgs e)
+        {
+            string printPath = System.Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            fileToPrint = new System.IO.StreamReader(printPath + @"\myFile.txt");
+            printFont = new System.Drawing.Font("Arial", 10);
+            printDocument1.Print();
+            fileToPrint.Close();
+        }
+
+        private void printDocument1_PrintPage(object sender, System.Drawing.Printing.PrintPageEventArgs e)
+        {
+            float yPos = 0f;
+            int count = 0;
+            float leftMargin = e.MarginBounds.Left;
+            float topMargin = e.MarginBounds.Top;
+            string line = null;
+            float linesPerPage = e.MarginBounds.Height / printFont.GetHeight(e.Graphics);
+            while (count < linesPerPage)
+            {
+                line = fileToPrint.ReadLine();
+                if (line == null)
+                {
+                    break;
+                }
+                yPos = topMargin + count * printFont.GetHeight(e.Graphics);
+                e.Graphics.DrawString(line, printFont, Brushes.Black, leftMargin, yPos, new StringFormat());
+                count++;
+            }
+            if (line != null)
+            {
+                e.HasMorePages = true;
+            }
         }
     }
 }
