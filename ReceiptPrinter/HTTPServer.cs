@@ -4,17 +4,17 @@ using System.IO;
 using System.Collections;
 using ReceiptPrinter;
 using System.Windows.Forms;
+using System.Drawing.Printing;
 
 public class HttpServer
 {
-    public int Port = 8080;
 
     private HttpListener _listener;
 
-    public void Start()
+    public void Start(String httpServerIP, String httpServerPort)
     {
         _listener = new HttpListener();
-        _listener.Prefixes.Add("http://localhost:" + Port.ToString() + "/");
+        _listener.Prefixes.Add("http://"+ httpServerIP + ":" + httpServerPort + "/");
         _listener.Start();
         Receive();
     }
@@ -44,14 +44,15 @@ public class HttpServer
                 if (test.Current is ReceiptPrinter.Form1)
                 {
                     Form1 form1= (Form1)test.Current;
-                    //form1.listBox1.Items.Add(new MyListBoxItem(Color.Green, $"{request.Url}"));
 
                     form1.listBox1.Invoke((MethodInvoker)delegate {
                         // Running on the UI thread
                         form1.listBox1.Items.Add(new MyListBoxItem(Color.Green, $"{request.Url}"));
-                    });
 
-                    //MessageBox.Show($"{request.Url}", "HTTP Listener");
+                        // Use the JSON list passed in from the HTTP call and print the receipt
+                        form1.purchaseList = request.InputStream;
+                        form1.printDocument1.Print();
+                    });
                 }
             }
 

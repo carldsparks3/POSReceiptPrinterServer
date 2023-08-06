@@ -1,0 +1,6 @@
+﻿{
+    "securityToken": "rh3u5124ywjwtj225725",
+    "kitchen": "SHORT",
+    "orderNumber": 154,
+    "purchaseItems": [{"item": "Hot-dog", "itemCount": 5}, {"item": "Haluski", "itemCount": 6}]
+}

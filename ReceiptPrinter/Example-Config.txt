@@ -1,0 +1,3 @@
+﻿httpServerIP=localhost
+httpServerPort=8080
+securityToken=rh3u5124ywjwtj225725

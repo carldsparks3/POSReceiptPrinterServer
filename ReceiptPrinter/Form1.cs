@@ -6,29 +6,28 @@ namespace ReceiptPrinter
     {
         System.IO.StreamReader fileToPrint;
         System.Drawing.Font printFont;
+        public Stream purchaseList;
+
+        private String serverIP;
+        private String serverPort;
+        private String appToken;
 
         public Form1()
         {
             InitializeComponent();
+            parseConfigFile();
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
             listBox1.Items.Add(new MyListBoxItem(Color.Green, "Validated data successfully"));
             listBox1.Items.Add(new MyListBoxItem(Color.Red, "Failed to validate data"));
-
-            //ReceiptPrinterService rps = new ReceiptPrinterService();
-            //rps.PrintSaleByJSON("nothing is done with this yet....");
-
-            //Class1.Print();
-
-
         }
 
         private void listBox1_DrawItem(object sender, DrawItemEventArgs e)
         {
-            MyListBoxItem item = listBox1.Items[e.Index] as MyListBoxItem; 
-            
+            MyListBoxItem item = listBox1.Items[e.Index] as MyListBoxItem;
+
             if (item != null)
             {
                 e.Graphics.DrawString( // Draw the appropriate text in the ListBox  
@@ -52,91 +51,82 @@ namespace ReceiptPrinter
             }
         }
 
-        private void StartRESTListener(string[] prefixes)
-        {
-            if (!HttpListener.IsSupported)
-            {
-                Console.WriteLine("Windows XP SP2 or Server 2003 is required to use the HttpListener class.");
-                return;
-            }
-            // URI prefixes are required,
-            // for example "http://contoso.com:8080/index/".
-            if (prefixes == null || prefixes.Length == 0)
-                throw new ArgumentException("prefixes");
-
-            // Create a listener.
-            HttpListener listener = new HttpListener();
-            // Add the prefixes.
-            foreach (string s in prefixes)
-            {
-                listener.Prefixes.Add(s);
-            }
-            listener.Start();
-            Console.WriteLine("Listening...");
-            // Note: The GetContext method blocks while waiting for a request.
-            HttpListenerContext context = listener.GetContext();
-            HttpListenerRequest request = context.Request;
-            // Obtain a response object.
-            HttpListenerResponse response = context.Response;
-            // Construct a response.
-            string responseString = "<HTML><BODY> Hello world!</BODY></HTML>";
-            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
-            // Get a response stream and write the response to it.
-            response.ContentLength64 = buffer.Length;
-            System.IO.Stream output = response.OutputStream;
-            output.Write(buffer, 0, buffer.Length);
-            // You must close the output stream.
-            output.Close();
-            //listener.Stop();
-        }
-
         private void Form1_Load(object sender, EventArgs e)
         {
-            
+
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            // StartRESTListener(new string[1] { "http://localhost:8080/test/" });
-
             listBox1.Items.Add(new MyListBoxItem(Color.Green, "Starting HTTP listener..."));
 
             var httpServer = new HttpServer();
-            httpServer.Start();
+            httpServer.Start(serverIP, serverPort);
+
+            listBox1.Items.Add(new MyListBoxItem(Color.Green, "HTTP Server Listening on 'http://" + serverIP + ":" + serverPort + "/'"));
         }
 
-        
+
         private void printButton_Click(object sender, EventArgs e)
         {
-            string printPath = System.Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            fileToPrint = new System.IO.StreamReader(printPath + @"\myFile.txt");
-            printFont = new System.Drawing.Font("Arial", 10);
             printDocument1.Print();
-            fileToPrint.Close();
         }
 
         private void printDocument1_PrintPage(object sender, System.Drawing.Printing.PrintPageEventArgs e)
         {
-            float yPos = 0f;
-            int count = 0;
-            float leftMargin = e.MarginBounds.Left;
-            float topMargin = e.MarginBounds.Top;
-            string line = null;
-            float linesPerPage = e.MarginBounds.Height / printFont.GetHeight(e.Graphics);
-            while (count < linesPerPage)
+            ReceiptPrinterService printService = new ReceiptPrinterService();
+            printService.SetupPrinterDevice(e);
+            printService.PrintSaleByJSON(purchaseList);
+        }
+
+        private void setAppToken(String appToken)
+        {
+            this.appToken = appToken;
+        }
+
+        public String getAppToken()
+        {
+            return appToken;
+        }
+
+        private void parseConfigFile()
+        {
+            if (File.Exists(@"config.cfg"))
             {
-                line = fileToPrint.ReadLine();
-                if (line == null)
+                string[] configLines = File.ReadAllLines(@"config.cfg");
+                foreach(string line in configLines)
                 {
-                    break;
+                    if (line.Contains("httpServerIP"))
+                    {
+                        String configVal = line.Split('=')[1];
+                        serverIP = configVal;
+                    }
+
+                    if (line.Contains("httpServerPort"))
+                    {
+                        String configVal = line.Split('=')[1];
+                        serverPort = configVal;
+                    }
+
+                    if (line.Contains("securityToken"))
+                    {
+                        String configVal = line.Split('=')[1];
+                        setAppToken(configVal);
+                    }
                 }
-                yPos = topMargin + count * printFont.GetHeight(e.Graphics);
-                e.Graphics.DrawString(line, printFont, Brushes.Black, leftMargin, yPos, new StringFormat());
-                count++;
-            }
-            if (line != null)
+            } else
             {
-                e.HasMorePages = true;
+                String[] defaultConfig = new string[3];
+                defaultConfig.Append("httpServerIP=localhost");
+                defaultConfig.Append("httpServerPort=8080");
+                defaultConfig.Append("securityToken=rh3u5124ywjwtj225725");
+
+                // Populate some defaults
+                File.WriteAllLines(@"config.cfg", defaultConfig);
+
+                button2.Enabled = false;
+
+                MessageBox.Show("A valid config file named 'config.cfg' is required to populate the application configuration. The file was not found so one has been created for you. You should close this program, update the config, and run this application again.", "Config FIle Note Found");
             }
         }
     }

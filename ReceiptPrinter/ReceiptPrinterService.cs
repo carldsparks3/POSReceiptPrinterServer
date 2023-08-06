@@ -3,7 +3,10 @@ using ESCPOS_NET.Emitters;
 using ESCPOS_NET.Utilities;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -13,84 +16,142 @@ namespace ReceiptPrinter
 {
     internal class ReceiptPrinterService
     {
-        //private SerialPrinter printer = null;
+        System.Drawing.Font printFont = new System.Drawing.Font("Arial", 12); // Font used for the item list
+        int maxLineLength = 50; // We're saying that each printed receipt line should be a max of 50 chars
+
+        float yPos, leftMargin, topMargin, linesPerPage;
+        int count;
+        string line;
+        System.Drawing.Printing.PrintPageEventArgs printPageEvts;
 
         public ReceiptPrinterService() {
-            SetupPrinterDevice();
+            //SetupPrinterDevice();
         }
 
-        public void SetupPrinterDevice()
+        // Code that needs to run when the Print setup is initialized. 
+        public void SetupPrinterDevice(System.Drawing.Printing.PrintPageEventArgs e)
         {
-            // A list of all possible printer types are included in this file. Modify this method as needed to support your printer.
+            printPageEvts = e;
+            yPos = 0f;
+            count = 0;
+            leftMargin = 10;//e.MarginBounds.Left;
+            topMargin = e.MarginBounds.Top;
+            line = null;
+            linesPerPage = e.MarginBounds.Height / printFont.GetHeight(e.Graphics);
 
-            // Ethernet or WiFi (This uses an Immediate Printer, no live paper status events, but is easier to use)
-            //var hostnameOrIp = "192.168.1.50";
-            //var port = 9100;
-            //var printer = new ImmediateNetworkPrinter(new ImmediateNetworkPrinterSettings() { ConnectionString = $"{hostnameOrIp}:{port}", PrinterName = "TestPrinter" });
-
-            // USB, Bluetooth, or Serial
-            var printer = new SerialPrinter(portName: "COM1", baudRate: 115200);
-
-            // Linux output to USB / Serial file
-            //var printer = new FilePrinter(filePath: "/dev/usb/lp0");
-
-            // Samba
-            //var printer = new SambaPrinter(tempFileBasePath: @"C:\Temp", filePath: "\\computer\printer");
+            printFont = new System.Drawing.Font("Arial", 12);
         }
 
-        public void PrintSaleByJSON(string json)
+        // Includes a custom defined header template for the Receipt
+        private void ReceiptHeader(String boldHeading, int orderNumber)
         {
-            //var list = JsonConvert.DeserializeObject<List<TransactionItem>>(json);
+            if (boldHeading != null)
+            {
+                printPageEvts.Graphics.DrawString(boldHeading, new System.Drawing.Font("Arial", 55), Brushes.Black, leftMargin - 10, yPos, new StringFormat());
+                yPos = topMargin + count * printFont.GetHeight(printPageEvts.Graphics);
+                count++;
+            }
 
-            var printer = new SerialPrinter(portName: "COM2", baudRate: 115200);
+            printPageEvts.Graphics.DrawString("Saint Peter & Paul Church Picnic", new System.Drawing.Font("Arial", 12), Brushes.Black, leftMargin, yPos, new StringFormat());
+            yPos = topMargin + count * printFont.GetHeight(printPageEvts.Graphics);
+            count++;
 
-            var e = new EPSON();
-            printer.Write( // or, if using and immediate printer, use await printer.WriteAsync
-              ByteSplicer.Combine(
-                e.CenterAlign(),
-                //e.PrintImage(File.ReadAllBytes("images/pd-logo-300.png"), true),
-                e.PrintLine(""),
-                e.SetBarcodeHeightInDots(360),
-                e.SetBarWidth(BarWidth.Default),
-                e.SetBarLabelPosition(BarLabelPrintPosition.None),
-                e.PrintBarcode(BarcodeType.ITF, "0123456789"),
-                e.PrintLine(""),
-                e.PrintLine("B&H PHOTO & VIDEO"),
-                e.PrintLine("420 NINTH AVE."),
-                e.PrintLine("NEW YORK, NY 10001"),
-                e.PrintLine("(212) 502-6380 - (800)947-9975"),
-                e.SetStyles(PrintStyle.Underline),
-                e.PrintLine("www.bhphotovideo.com"),
-                e.SetStyles(PrintStyle.None),
-                e.PrintLine(""),
-                e.LeftAlign(),
-                e.PrintLine("Order: 123456789        Date: 02/01/19"),
-                e.PrintLine(""),
-                e.PrintLine(""),
-                e.SetStyles(PrintStyle.FontB),
-                e.PrintLine("1   TRITON LOW-NOISE IN-LINE MICROPHONE PREAMP"),
-                e.PrintLine("    TRFETHEAD/FETHEAD                        89.95         89.95"),
-                e.PrintLine("----------------------------------------------------------------"),
-                e.RightAlign(),
-                e.PrintLine("SUBTOTAL         89.95"),
-                e.PrintLine("Total Order:         89.95"),
-                e.PrintLine("Total Payment:         89.95"),
-                e.PrintLine(""),
-                e.LeftAlign(),
-                e.SetStyles(PrintStyle.Bold | PrintStyle.FontB),
-                e.PrintLine("SOLD TO:                        SHIP TO:"),
-                e.SetStyles(PrintStyle.FontB),
-                e.PrintLine("  FIRSTN LASTNAME                 FIRSTN LASTNAME"),
-                e.PrintLine("  123 FAKE ST.                    123 FAKE ST."),
-                e.PrintLine("  DECATUR, IL 12345               DECATUR, IL 12345"),
-                e.PrintLine("  (123)456-7890                   (123)456-7890"),
-                e.PrintLine("  CUST: 87654321"),
-                e.PrintLine(""),
-                e.PrintLine("")
-              )
-            );
+            DateTime saleDateTime = DateTime.Now;
+            String saleDateTimeStr = saleDateTime.ToString("MMMM dd, yyyy hh:mm tt");
+
+            printPageEvts.Graphics.DrawString(saleDateTimeStr, new System.Drawing.Font("Arial", 12), Brushes.Black, leftMargin, yPos, new StringFormat());
+            yPos = topMargin + count * printFont.GetHeight(printPageEvts.Graphics);
+            count++;
+
+            printPageEvts.Graphics.DrawString("", new System.Drawing.Font("Arial", 18), Brushes.Black, leftMargin, yPos, new StringFormat());
+            yPos = topMargin + count * printFont.GetHeight(printPageEvts.Graphics);
+            count++;
+
+            printPageEvts.Graphics.DrawString("Order Number: " + orderNumber, new System.Drawing.Font("Arial", 16), Brushes.Black, leftMargin, yPos, new StringFormat());
+            yPos = topMargin + count * printFont.GetHeight(printPageEvts.Graphics);
+            count++;
         }
 
-        
+        public void PrintSaleByJSON(Stream purchaseRequestBody)
+        {
+            // Parse the purchase request body
+            var serializer = new JsonSerializer();
+            PurchaseList purchaseOrder;
+
+            using (var sr = new StreamReader(purchaseRequestBody))
+            {
+                string text = sr.ReadToEnd();
+
+                purchaseOrder = (PurchaseList)JsonConvert.DeserializeObject<PurchaseList>(text);
+            }
+
+            if (purchaseOrder != null)
+            {
+                // Validate that the request is adequately authenticated. Check for the correct security token.
+                // We don't want to accept just any old request. Only accept requests we can confirm.
+                SecurityService securityService = new SecurityService();
+                securityService.authenticateWithAPISecurityToken(purchaseOrder.securityToken, getAppSecurityToken());
+
+                if (securityService.IsAuthenticated)
+                {
+                    ReceiptHeader(purchaseOrder.kitchen, purchaseOrder.orderNumber);
+
+                    // Loop through the parsed JSON request body to build out the receipt body
+                    if (purchaseOrder.purchaseItems != null)
+                    {
+                        foreach (PurchaseItem item in purchaseOrder.purchaseItems)
+                        {
+                            line = item.item + getDotString(item.item.Length + item.itemCount + 3) + item.itemCount; // 3 is the count of our control chars " ", " ", and "x"
+                            if (line == null)
+                            {
+                                break;
+                            }
+                            yPos = topMargin + count * printFont.GetHeight(printPageEvts.Graphics);
+                            printPageEvts.Graphics.DrawString(line, printFont, Brushes.Black, leftMargin, yPos, new StringFormat());
+                            count++;
+                        }
+                        if (line != null)
+                        {
+                            printPageEvts.HasMorePages = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Method that returns a String with a variable length of "..." characters. 
+        // Resulting string length is determined by subtracting the current string length from the max line length
+        private String getDotString(int currStringLength)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append(" ");
+            for(int i = currStringLength; i < maxLineLength; i++)
+            {
+                sb.Append(".");
+            }
+            sb.Append(" x");
+
+            return sb.ToString();
+        }
+
+
+        private String getAppSecurityToken()
+        {
+            IEnumerator test = Application.OpenForms.GetEnumerator();
+            if (test != null)
+            {
+                test.MoveNext();
+                if (test.Current is ReceiptPrinter.Form1)
+                {
+                    Form1 form1 = (Form1)test.Current;
+                    if (form1 != null)
+                    {
+                        return form1.getAppToken();
+                    }
+                }
+            }
+
+            return null;
+        }
     }
 }
